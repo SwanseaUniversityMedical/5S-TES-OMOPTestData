@@ -5,7 +5,7 @@ RUN mkdir /synthea
 
 WORKDIR  /synthea
 
-COPY ./synthea-with-dependencies.jar ./
+RUN wget -q https://github.com/synthetichealth/synthea/releases/download/master-branch-latest/synthea-with-dependencies.jar
 
 COPY ./synthea.properties ./
 
