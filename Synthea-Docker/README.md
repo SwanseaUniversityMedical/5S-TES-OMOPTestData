@@ -10,6 +10,6 @@ properties file contains the config to be used to get the output data , which ca
 ```console 
 docker build -t syntheadata:1.0 .
 
-docker run -v .\output:/synthea/output -it syntheadata:1.0 -p 10
+docker run -v ./output:/synthea/output -it syntheadata:1.0 -p 10
 ```
 > By defualt it generates 25 patients records,it can be changed by passing in docker command
