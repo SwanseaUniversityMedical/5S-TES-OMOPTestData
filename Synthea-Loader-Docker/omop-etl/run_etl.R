@@ -115,70 +115,74 @@ DatabaseConnector::disconnect(conn)
 
 # ── Step 1: Create OMOP CDM tables ───────────────────────────────────────────
 cat("\n[1/7] Creating OMOP CDM tables...\n")
-ETLSyntheaBuilder::CreateCDMTables(
-  connectionDetails = cd,
-  cdmSchema         = cdm_schema,
-  cdmVersion        = cdm_version
-)
+safe_call(ETLSyntheaBuilder::CreateCDMTables,
+  connectionDetails    = cd,
+  cdmSchema            = cdm_schema,
+  cdmDatabaseSchema    = cdm_schema,
+  cdmVersion           = cdm_version)
 cat("  Done.\n")
 
 # ── Step 2: Create Synthea staging tables ─────────────────────────────────────
 cat("\n[2/7] Creating Synthea staging tables...\n")
-ETLSyntheaBuilder::CreateSyntheaTables(
-  connectionDetails = cd,
-  syntheaSchema     = synthea_schema,
-  syntheaVersion    = synthea_version
-)
+safe_call(ETLSyntheaBuilder::CreateSyntheaTables,
+  connectionDetails        = cd,
+  syntheaSchema            = synthea_schema,
+  syntheaDatabaseSchema    = synthea_schema,
+  syntheaVersion           = synthea_version)
 cat("  Done.\n")
 
 # ── Step 3: Load Synthea CSVs into staging ────────────────────────────────────
 cat("\n[3/7] Loading Synthea CSV files...\n")
-ETLSyntheaBuilder::LoadSyntheaTables(
-  connectionDetails = cd,
-  syntheaSchema     = synthea_schema,
-  syntheaFileLoc    = synthea_csv_loc
-)
+safe_call(ETLSyntheaBuilder::LoadSyntheaTables,
+  connectionDetails        = cd,
+  syntheaSchema            = synthea_schema,
+  syntheaDatabaseSchema    = synthea_schema,
+  syntheaFileLoc           = synthea_csv_loc)
 cat("  Done.\n")
 
 # ── Step 4: Load OMOP vocabulary ──────────────────────────────────────────────
 cat("\n[4/7] Loading OMOP vocabulary...\n")
 cat("  Note: This may take a long time for large vocabulary sets.\n")
-ETLSyntheaBuilder::LoadVocabFromCsv(
-  connectionDetails = cd,
-  cdmSchema         = cdm_schema,
-  vocabFileLoc      = vocab_loc
-)
+safe_call(ETLSyntheaBuilder::LoadVocabFromCsv,
+  connectionDetails    = cd,
+  cdmSchema            = cdm_schema,
+  cdmDatabaseSchema    = cdm_schema,
+  vocabFileLoc         = vocab_loc)
 cat("  Done.\n")
 
 # ── Step 5: Create vocab mapping tables ───────────────────────────────────────
 cat("\n[5/7] Creating vocabulary mapping tables...\n")
 safe_call(ETLSyntheaBuilder::CreateVocabMapTables,
-  connectionDetails = cd,
-  cdmSchema         = cdm_schema,
-  cdmVersion        = cdm_version,
-  syntheaVersion    = synthea_version)
+  connectionDetails    = cd,
+  cdmSchema            = cdm_schema,
+  cdmDatabaseSchema    = cdm_schema,
+  cdmVersion           = cdm_version,
+  syntheaVersion       = synthea_version)
 cat("  Done.\n")
 
 # ── Step 6: Create visit rollup tables ────────────────────────────────────────
 cat("\n[6/7] Creating visit rollup tables...\n")
 safe_call(ETLSyntheaBuilder::CreateVisitRollupTables,
-  connectionDetails = cd,
-  cdmSchema         = cdm_schema,
-  syntheaSchema     = synthea_schema,
-  cdmVersion        = cdm_version,
-  syntheaVersion    = synthea_version)
+  connectionDetails        = cd,
+  cdmSchema                = cdm_schema,
+  cdmDatabaseSchema        = cdm_schema,
+  syntheaSchema            = synthea_schema,
+  syntheaDatabaseSchema    = synthea_schema,
+  cdmVersion               = cdm_version,
+  syntheaVersion           = synthea_version)
 cat("  Done.\n")
 
 # ── Step 7: Run ETL – load OMOP event tables ──────────────────────────────────
 cat("\n[7/7] Running ETL transformations (loading OMOP event tables)...\n")
 cat("  Note: This is the longest step. Please be patient.\n")
-ETLSyntheaBuilder::LoadEventTables(
-  connectionDetails = cd,
-  cdmSchema         = cdm_schema,
-  syntheaSchema     = synthea_schema,
-  cdmVersion        = cdm_version,
-  syntheaVersion    = synthea_version
-)
+safe_call(ETLSyntheaBuilder::LoadEventTables,
+  connectionDetails        = cd,
+  cdmSchema                = cdm_schema,
+  cdmDatabaseSchema        = cdm_schema,
+  syntheaSchema            = synthea_schema,
+  syntheaDatabaseSchema    = synthea_schema,
+  cdmVersion               = cdm_version,
+  syntheaVersion           = synthea_version)
 cat("  Done.\n")
 
 # ── Summary ───────────────────────────────────────────────────────────────────
