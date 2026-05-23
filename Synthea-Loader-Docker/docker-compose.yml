@@ -1,0 +1,91 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: synthea_db
+    hostname: synthea_db
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-synthea}
+      POSTGRES_USER:     ${POSTGRES_USER:-synthea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synthea}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres.conf:/etc/postgresql/postgresql.conf:ro
+    command: >
+      postgres
+        -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synthea} -d ${POSTGRES_DB:-synthea}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # ── CSV Loader (raw Synthea tables in public schema) ────────────────────────
+  loader:
+    build:
+      context: ./loader
+    container_name: synthea_loader
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST:     synthea_db
+      POSTGRES_PORT:     5432
+      POSTGRES_DB:       ${POSTGRES_DB:-synthea}
+      POSTGRES_USER:     ${POSTGRES_USER:-synthea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synthea}
+      CSV_DIR:           /csv
+    volumes:
+      - ${CSV_SOURCE_DIR:-./csv}:/csv:ro
+    restart: "no"
+
+  # ── OMOP ETL (ETL-Synthea: Synthea CSV -> OMOP CDM v5.4) ───────────────────
+  omop-etl:
+    build:
+      context: ./omop-etl
+    container_name: synthea_omop_etl
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Database connection
+      OMOP_DB_HOST:         synthea_db
+      OMOP_DB_PORT:         5432
+      OMOP_DB_NAME:         ${POSTGRES_DB:-synthea}
+      OMOP_DB_USER:         ${POSTGRES_USER:-synthea}
+      OMOP_DB_PASSWORD:     ${POSTGRES_PASSWORD:-synthea}
+
+      # Schema names (created automatically)
+      OMOP_CDM_SCHEMA:      ${OMOP_CDM_SCHEMA:-cdm_synthea}
+      OMOP_NATIVE_SCHEMA:   ${OMOP_NATIVE_SCHEMA:-native}
+
+      # Versions — update these to match your Synthea output
+      OMOP_CDM_VERSION:     ${OMOP_CDM_VERSION:-5.4}
+      OMOP_SYNTHEA_VERSION: ${OMOP_SYNTHEA_VERSION:-3.3.0}
+
+      # Mount paths inside the container
+      OMOP_SYNTHEA_CSV:     /csv
+      OMOP_VOCAB_DIR:       /vocab
+      OMOP_JDBC_DIR:        /jdbc
+    volumes:
+      # Synthea CSV files (same source as loader)
+      - ${CSV_SOURCE_DIR:-./csv}:/csv:ro
+      # OMOP Vocabulary files — download from https://athena.ohdsi.org
+      # Must contain CONCEPT.csv, VOCABULARY.csv, CONCEPT_RELATIONSHIP.csv etc.
+      - ${VOCAB_SOURCE_DIR:-./vocab}:/vocab:ro
+    restart: "no"
+    # NOTE: The omop-etl container is independent of the loader container.
+    # Both read from /csv directly. Run them together or separately:
+    #   docker compose up loader          # load raw tables only
+    #   docker compose up omop-etl        # run OMOP ETL only
+    #   docker compose up loader omop-etl # run both (in parallel — both safe)
+
+volumes:
+  pgdata:
