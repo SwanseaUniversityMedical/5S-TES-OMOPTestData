@@ -54,6 +54,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      loader:
+        condition: service_completed_successfully
     environment:
       # Database connection
       OMOP_DB_HOST:         synthea_db
@@ -81,11 +83,9 @@ services:
       # Must contain CONCEPT.csv, VOCABULARY.csv, CONCEPT_RELATIONSHIP.csv etc.
       - ${VOCAB_SOURCE_DIR:-./vocab}:/vocab:ro
     restart: "no"
-    # NOTE: The omop-etl container is independent of the loader container.
-    # Both read from /csv directly. Run them together or separately:
-    #   docker compose up loader          # load raw tables only
-    #   docker compose up omop-etl        # run OMOP ETL only
-    #   docker compose up loader omop-etl # run both (in parallel — both safe)
+    # NOTE: omop-etl waits for loader to complete successfully before starting.
+    # To run only the loader:   docker compose up loader
+    # To run the full pipeline: docker compose up
 
 volumes:
   pgdata:
